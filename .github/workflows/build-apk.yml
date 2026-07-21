@@ -1,1 +1,55 @@
+name: Build Android APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "IndustryGoAdvisor-source.zip"
+      - ".github/workflows/build-apk.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository laden
+        uses: actions/checkout@v4
+
+      - name: Java 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Gradle 8.9 einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Android SDK einrichten
+        uses: android-actions/setup-android@v3
+
+      - name: Android SDK 35 installieren
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Projekt entpacken
+        run: |
+          rm -rf extracted
+          mkdir extracted
+          unzip -q IndustryGoAdvisor-source.zip -d extracted
+          test -f extracted/IndustryGoAdvisor/settings.gradle.kts
+
+      - name: Debug-APK bauen
+        working-directory: extracted/IndustryGoAdvisor
+        run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: APK bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: IndustryGoAdvisor-debug-apk
+          path: extracted/IndustryGoAdvisor/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
